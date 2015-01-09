@@ -156,6 +156,10 @@ engine_opts = [
                 help=_('Enables engine with convergence architecture. All '
                        'stacks with this option will be created using '
                        'convergence engine .')),
+    cfg.BoolOpt('resource_hooks',
+                default=False,
+                help=_('Enables resource hooks. Resources can be paused'
+                       'before they are created or updated.')),
     cfg.StrOpt('onready',
                help=_('Deprecated.'))]
 

@@ -1807,3 +1807,199 @@ class ReducePhysicalResourceNameTest(common.HeatTestCase):
             else:
                 # check that nothing has changed
                 self.assertEqual(self.original, reduced)
+
+
+class ResourceHookTest(common.HeatTestCase):
+
+    def setUp(self):
+        super(ResourceHookTest, self).setUp()
+
+        resource._register_class('GenericResourceType',
+                                 generic_rsrc.GenericResource)
+        resource._register_class('ResourceWithCustomConstraint',
+                                 generic_rsrc.ResourceWithCustomConstraint)
+
+        self.env = environment.Environment()
+        self.env.load({u'resource_registry':
+                      {u'OS::Test::GenericResource': u'GenericResourceType',
+                       u'OS::Test::ResourceWithCustomConstraint':
+                       u'ResourceWithCustomConstraint'}})
+
+        self.stack = parser.Stack(utils.dummy_context(), 'test_stack',
+                                  parser.Template(empty_template),
+                                  env=self.env, stack_id=str(uuid.uuid4()))
+        self.patch('heat.engine.resource.warnings')
+
+        snippet = rsrc_defn.ResourceDefinition('res',
+                                               'GenericResourceType')
+        self.res = resource.Resource('res', snippet, self.stack)
+        self.res_two = resource.Resource('res_two', snippet, self.stack)
+        self.thingy = resource.Resource('thingy', snippet, self.stack)
+
+        nested_stack = mock.Mock()
+        type(nested_stack).name = mock.PropertyMock()
+        type(nested_stack).nested_depth = mock.PropertyMock(return_value=1)
+        parent_resource = mock.Mock()
+        type(parent_resource).stack = mock.PropertyMock(
+            return_value=self.stack)
+        type(parent_resource).name = mock.PropertyMock(return_value='nested')
+
+        type(nested_stack).parent_resource = mock.PropertyMock(
+            return_value=parent_resource)
+        type(nested_stack).env = mock.PropertyMock()
+        nested_stack.env.registry.get_class = mock.Mock(
+            return_value=resources.stack.NestedStack)
+        type(nested_stack).context = mock.PropertyMock()
+        type(nested_stack).action = mock.PropertyMock(return_value='CREATE')
+        nested_stack.db_resource_get = mock.Mock(return_value=None)
+        self.nested_n = resource.Resource(
+            'n', rsrc_defn.ResourceDefinition('n', 'GenericResourceType'),
+            nested_stack)
+
+        another_nested = mock.Mock()
+        type(another_nested).name = mock.PropertyMock()
+        type(another_nested).nested_depth = mock.PropertyMock(return_value=1)
+        parent_resource = mock.Mock()
+        type(parent_resource).stack = mock.PropertyMock(
+            return_value=self.stack)
+        type(parent_resource).name = mock.PropertyMock(
+            return_value='another_nested')
+
+        type(another_nested).parent_resource = mock.PropertyMock(
+            return_value=parent_resource)
+        type(another_nested).env = mock.PropertyMock()
+        another_nested.env.registry.get_class = mock.Mock(
+            return_value=resources.stack.NestedStack)
+        type(another_nested).context = mock.PropertyMock()
+        type(another_nested).action = mock.PropertyMock(return_value='CREATE')
+        another_nested.db_resource_get = mock.Mock(return_value=None)
+        self.another_nested_n = resource.Resource(
+            'n', rsrc_defn.ResourceDefinition('n', 'GenericResourceType'),
+            another_nested)
+
+    def test_matches_hook(self):
+        self.assertTrue(self.res.matches_hook(
+            {'res': {'hooks': 'pre-create'}}, 'pre-create'))
+        self.assertTrue(self.res.matches_hook(
+            {
+                'something': {},
+                'res': {'hooks': 'pre-create'},
+                'something_else': {'hooks': 'pre-create'}
+            },
+            'pre-create'))
+
+        self.assertFalse(self.res.matches_hook(
+            {'something_else': {'hooks': 'pre-create'}}, 'pre-create'))
+        self.assertFalse(self.res.matches_hook({}, 'pre-create'))
+
+    def test_nested_hooks(self):
+        self.assertTrue(self.nested_n.matches_hook(
+            {'nested': {'n': {'hooks': 'pre-create'}}}, 'pre-create'))
+        self.assertTrue(self.another_nested_n.matches_hook(
+            {'another_nested': {'n': {'hooks': 'pre-create'}}},
+            'pre-create'))
+
+        self.assertFalse(self.nested_n.matches_hook(
+            {'another_nested': {'n': {'hooks': 'pre-create'}}},
+            'pre-create'))
+        self.assertFalse(self.another_nested_n.matches_hook(
+            {'nested': {'n': {'hooks': 'pre-create'}}}, 'pre-create'))
+        self.assertFalse(self.res.matches_hook(
+            {'nested': {'n': {'hooks': 'pre-create'}}}, 'pre-create'))
+        self.assertFalse(self.res.matches_hook(
+            {'another_nested': {'n': {'hooks': 'pre-create'}}},
+            'pre-create'))
+        self.assertFalse(self.res.matches_hook(
+            {'n': {'hooks': 'pre-create'}}, 'pre-create'))
+
+    def test_glob_stack_hooks(self):
+        self.assertTrue(self.nested_n.matches_hook(
+            {'*': {'n': {'hooks': 'pre-create'}}}, 'pre-create'))
+        self.assertTrue(self.another_nested_n.matches_hook(
+            {'*': {'n': {'hooks': 'pre-create'}}}, 'pre-create'))
+        self.assertTrue(self.nested_n.matches_hook(
+            {'*': {'*': {'hooks': 'pre-create'}}}, 'pre-create'))
+        self.assertTrue(self.nested_n.matches_hook(
+            {'nested': {'*': {'hooks': 'pre-create'}}}, 'pre-create'))
+        self.assertTrue(self.another_nested_n.matches_hook(
+            {'*': {'*': {'hooks': 'pre-create'}}}, 'pre-create'))
+
+    def test_glob_resource_names(self):
+        self.assertTrue(self.res.matches_hook(
+            {'res*': {'hooks': 'pre-create'}}, 'pre-create'))
+        self.assertTrue(self.res_two.matches_hook(
+            {'res*': {'hooks': 'pre-create'}}, 'pre-create'))
+        self.assertFalse(self.thingy.matches_hook(
+            {'res*': {'hooks': 'pre-create'}}, 'pre-create'))
+        self.assertTrue(self.nested_n.matches_hook(
+            {'*nested': {'n': {'hooks': 'pre-create'}}},
+            'pre-create'))
+        self.assertTrue(self.another_nested_n.matches_hook(
+            {'*nested': {'n': {'hooks': 'pre-create'}}},
+            'pre-create'))
+
+    def test_hook(self):
+        snippet = rsrc_defn.ResourceDefinition('res',
+                                               'GenericResourceType')
+        res = resource.Resource('res', snippet, self.stack)
+
+        res.data = mock.Mock(return_value={})
+        self.assertFalse(res.has_hook('pre-create'))
+        self.assertFalse(res.has_hook('pre-update'))
+
+        res.data = mock.Mock(return_value={'pre-create': 'True'})
+        self.assertTrue(res.has_hook('pre-create'))
+        self.assertFalse(res.has_hook('pre-update'))
+
+        res.data = mock.Mock(return_value={'pre-create': 'False'})
+        self.assertFalse(res.has_hook('pre-create'))
+        self.assertFalse(res.has_hook('pre-update'))
+
+        res.data = mock.Mock(return_value={'pre-update': 'True'})
+        self.assertFalse(res.has_hook('pre-create'))
+        self.assertTrue(res.has_hook('pre-update'))
+
+    def test_set_hook(self):
+        snippet = rsrc_defn.ResourceDefinition('res',
+                                               'GenericResourceType')
+        res = resource.Resource('res', snippet, self.stack)
+
+        res.data_set = mock.Mock()
+        res.data_delete = mock.Mock()
+
+        res.set_hook('pre-create')
+        res.data_set.assert_called_with('pre-create', 'True')
+
+        res.set_hook('pre-update')
+        res.data_set.assert_called_with('pre-update', 'True')
+
+        res.unset_hook('pre-create')
+        res.data_delete.assert_called_with('pre-create')
+
+    def test_signal_clear_hook(self):
+        cfg.CONF.set_override('resource_hooks', True)
+        snippet = rsrc_defn.ResourceDefinition('res',
+                                               'GenericResourceType')
+        res = resource.Resource('res', snippet, self.stack)
+
+        res.unset_hook = mock.Mock()
+        res.signal({'unset_hook': 'pre-create'})
+        res.unset_hook.assert_called_with('pre-create')
+
+        res.signal({'unset_hook': 'pre-update'})
+        res.unset_hook.assert_called_with('pre-update')
+
+        res.unset_hook = mock.Mock()
+        self.assertRaises(exception.ResourceActionNotSupported,
+                          res.signal, None)
+        self.assertFalse(res.unset_hook.called)
+
+        res.unset_hook = mock.Mock()
+        self.assertRaises(exception.ResourceActionNotSupported,
+                          res.signal, {})
+        self.assertFalse(res.unset_hook.called)
+
+        res.unset_hook = mock.Mock()
+        self.assertRaises(exception.ResourceActionNotSupported,
+                          res.signal, {'unset_hook': 'unknown_hook'})
+        self.assertFalse(res.unset_hook.called)
