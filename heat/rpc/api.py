@@ -29,6 +29,7 @@ STACK_KEYS = (
     STACK_NOTIFICATION_TOPICS,
     STACK_DESCRIPTION, STACK_TMPL_DESCRIPTION,
     STACK_PARAMETERS, STACK_OUTPUTS, STACK_ACTION,
+    STACK_BREAKPOINTS,
     STACK_STATUS, STACK_STATUS_DATA, STACK_CAPABILITIES,
     STACK_DISABLE_ROLLBACK, STACK_TIMEOUT, STACK_OWNER,
     STACK_PARENT, STACK_USER_PROJECT_ID
@@ -38,6 +39,7 @@ STACK_KEYS = (
     'notification_topics',
     'description', 'template_description',
     'parameters', 'outputs', 'stack_action',
+    'breakpoints',
     'stack_status', 'stack_status_reason', 'capabilities',
     'disable_rollback', 'timeout_mins', 'stack_owner',
     'parent', 'stack_user_project_id'

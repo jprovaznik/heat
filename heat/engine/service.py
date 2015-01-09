@@ -709,6 +709,7 @@ class EngineService(service.Service):
         updated_stack.validate()
 
         event = eventlet.event.Event()
+
         th = self.thread_group_mgr.start_with_lock(cnxt, current_stack,
                                                    self.engine_id,
                                                    current_stack.update,

@@ -39,6 +39,7 @@ class EnvironmentTest(common.HeatTestCase):
         old = {u'a': u'ff', u'b': u'ss'}
         expected = {u'parameters': old,
                     u'parameter_defaults': {},
+                    u'breakpoints': [],
                     u'resource_registry': {u'resources': {}}}
         env = environment.Environment(old)
         self.assertEqual(expected, env.user_env_as_dict())
@@ -46,6 +47,7 @@ class EnvironmentTest(common.HeatTestCase):
     def test_load_new_env(self):
         new_env = {u'parameters': {u'a': u'ff', u'b': u'ss'},
                    u'parameter_defaults': {u'ff': 'new_def'},
+                   u'breakpoints': [],
                    u'resource_registry': {u'OS::Food': u'fruity.yaml',
                                           u'resources': {}}}
         env = environment.Environment(new_env)
@@ -57,6 +59,7 @@ class EnvironmentTest(common.HeatTestCase):
         params = {}
         expected = {'parameters': prev_params,
                     'parameter_defaults': {},
+                    'breakpoints': [],
                     'resource_registry': {'resources': {}}}
         prev_env = environment.Environment(
             {'parameters': prev_params,
@@ -71,6 +74,7 @@ class EnvironmentTest(common.HeatTestCase):
         params = {'tester': 'patched'}
         expected = {'parameters': {'foo': 'bar', 'tester': 'patched'},
                     'parameter_defaults': {},
+                    'breakpoints': [],
                     'resource_registry': {'resources': {}}}
         prev_env = environment.Environment(
             {'parameters': prev_params,
@@ -86,6 +90,7 @@ class EnvironmentTest(common.HeatTestCase):
         params = {'tester': 'patched'}
         expected = {'parameters': {'foo': 'bar', 'tester': 'patched'},
                     'parameter_defaults': {},
+                    'breakpoints': [],
                     'resource_registry': {'resources': {}}}
         prev_env = environment.Environment(
             {'parameters': prev_params,
@@ -100,6 +105,7 @@ class EnvironmentTest(common.HeatTestCase):
         params = {}
         expected = {'parameters': {'foo': 'bar'},
                     'parameter_defaults': {},
+                    'breakpoints': [],
                     'resource_registry': {'resources': {}}}
         prev_env = environment.Environment(
             {'parameters': prev_params,

@@ -291,6 +291,7 @@ class FormatTest(common.HeatTestCase):
         aws_id = ('arn:openstack:heat::test_tenant_id:'
                   'stacks/test_stack/' + self.stack.id)
         expected_stack_info = {
+            'breakpoints': [],
             'capabilities': [],
             'creation_time': '1970-01-01T00:00:00Z',
             'description': 'No description',

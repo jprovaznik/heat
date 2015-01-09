@@ -1807,3 +1807,190 @@ class ReducePhysicalResourceNameTest(common.HeatTestCase):
             else:
                 # check that nothing has changed
                 self.assertEqual(self.original, reduced)
+
+
+class ResourceBreakpointTest(common.HeatTestCase):
+
+    def setUp(self):
+        super(ResourceBreakpointTest, self).setUp()
+
+        resource._register_class('GenericResourceType',
+                                 generic_rsrc.GenericResource)
+        resource._register_class('ResourceWithCustomConstraint',
+                                 generic_rsrc.ResourceWithCustomConstraint)
+
+        self.env = environment.Environment()
+        self.env.load({u'resource_registry':
+                      {u'OS::Test::GenericResource': u'GenericResourceType',
+                       u'OS::Test::ResourceWithCustomConstraint':
+                       u'ResourceWithCustomConstraint'}})
+
+        self.stack = parser.Stack(utils.dummy_context(), 'test_stack',
+                                  parser.Template(empty_template),
+                                  env=self.env, stack_id=str(uuid.uuid4()))
+        self.patch('heat.engine.resource.warnings')
+
+        snippet = rsrc_defn.ResourceDefinition('res',
+                                               'GenericResourceType')
+        self.res = resource.Resource('res', snippet, self.stack)
+        self.res_two = resource.Resource('res_two', snippet, self.stack)
+        self.thingy = resource.Resource('thingy', snippet, self.stack)
+
+        nested_stack = mock.Mock()
+        type(nested_stack).name = mock.PropertyMock()
+        parent_resource = mock.Mock()
+        type(parent_resource).stack = mock.PropertyMock(
+            return_value=self.stack)
+        type(parent_resource).name = mock.PropertyMock(return_value='nested')
+
+        type(nested_stack).parent_resource = mock.PropertyMock(
+            return_value=parent_resource)
+        type(nested_stack).env = mock.PropertyMock()
+        nested_stack.env.registry.get_class = mock.Mock(
+            return_value=resources.stack.NestedStack)
+        type(nested_stack).context = mock.PropertyMock()
+        type(nested_stack).action = mock.PropertyMock(return_value='CREATE')
+        nested_stack.db_resource_get = mock.Mock(return_value=None)
+        self.nested_n = resource.Resource(
+            'n', rsrc_defn.ResourceDefinition('n', 'GenericResourceType'),
+            nested_stack)
+
+        another_nested = mock.Mock()
+        type(another_nested).name = mock.PropertyMock()
+        parent_resource = mock.Mock()
+        type(parent_resource).stack = mock.PropertyMock(
+            return_value=self.stack)
+        type(parent_resource).name = mock.PropertyMock(
+            return_value='another_nested')
+
+        type(another_nested).parent_resource = mock.PropertyMock(
+            return_value=parent_resource)
+        type(another_nested).env = mock.PropertyMock()
+        another_nested.env.registry.get_class = mock.Mock(
+            return_value=resources.stack.NestedStack)
+        type(another_nested).context = mock.PropertyMock()
+        type(another_nested).action = mock.PropertyMock(return_value='CREATE')
+        another_nested.db_resource_get = mock.Mock(return_value=None)
+        self.another_nested_n = resource.Resource(
+            'n', rsrc_defn.ResourceDefinition('n', 'GenericResourceType'),
+            another_nested)
+
+    def test_matches_breakpoint(self):
+        self.assertTrue(self.res.matches_breakpoint([['test_stack', 'res']]))
+        self.assertTrue(self.res.matches_breakpoint([
+            ['whatever'], ['test_stack', 'res'], ['whatever']]))
+        self.assertTrue(self.res.matches_breakpoint([
+            ['test_stack', 'res'], ['whatever'], ['whatever']]))
+        self.assertTrue(self.res.matches_breakpoint([
+            ['whatever'], ['whatever'], ['test_stack', 'res']]))
+
+        self.assertFalse(self.res.matches_breakpoint(
+            [['test_stack', 'other']]))
+        self.assertFalse(self.res.matches_breakpoint([['other', 'res']]))
+        self.assertFalse(self.res.matches_breakpoint([['res']]))
+        self.assertFalse(self.res.matches_breakpoint([['test_stack']]))
+        self.assertFalse(self.res.matches_breakpoint([]))
+        self.assertFalse(self.res.matches_breakpoint(
+            [['test_stack', 'other', 'res']]))
+        self.assertFalse(self.res.matches_breakpoint(
+            [['other', 'test_stack', 'res']]))
+        self.assertFalse(self.res.matches_breakpoint([
+            ['other', 'test_stack', 'res'], ['res']]))
+
+    def test_nested_breakpoints(self):
+        self.assertTrue(self.res.matches_breakpoint([['test_stack', 'res']]))
+        self.assertTrue(self.nested_n.matches_breakpoint(
+            [['test_stack', 'nested', 'n']]))
+        self.assertTrue(self.another_nested_n.matches_breakpoint(
+            [['test_stack', 'another_nested', 'n']]))
+
+        self.assertFalse(self.nested_n.matches_breakpoint(
+            [['test_stack', 'another_nested', 'n']]))
+        self.assertFalse(self.another_nested_n.matches_breakpoint(
+            [['test_stack', 'nested', 'n']]))
+        self.assertFalse(self.res.matches_breakpoint(
+            [['test_stack', 'nested', 'res']]))
+        self.assertFalse(self.res.matches_breakpoint(
+            [['test_stack', 'another_nested', 'res']]))
+        self.assertFalse(self.res.matches_breakpoint([['test_stack', 'n']]))
+
+    def test_glob_stack_breakpoints(self):
+        self.assertTrue(self.nested_n.matches_breakpoint(
+            [['test_stack', '*', 'n']]))
+        self.assertTrue(self.another_nested_n.matches_breakpoint(
+            [['test_stack', '*', 'n']]))
+        self.assertTrue(self.nested_n.matches_breakpoint(
+            [['test_stack', '*', '*']]))
+        self.assertTrue(self.nested_n.matches_breakpoint(
+            [['test_stack', 'nested', '*']]))
+        self.assertTrue(self.another_nested_n.matches_breakpoint(
+            [['test_stack', '*', '*']]))
+        self.assertFalse(self.res.matches_breakpoint([['*', 'res']]))
+        self.assertFalse(self.res.matches_breakpoint(
+            [['*', 'test_stack', 'res']]))
+        self.assertFalse(self.res.matches_breakpoint(
+            [['*', 'nested', 'res']]))
+
+    def test_glob_resource_names(self):
+        self.assertTrue(self.res.matches_breakpoint(
+            [['test_stack', 'res*']]))
+        self.assertTrue(self.res_two.matches_breakpoint(
+            [['test_stack', 'res*']]))
+        self.assertFalse(self.thingy.matches_breakpoint(
+            [['test_stack', 'res*']]))
+        self.assertTrue(self.nested_n.matches_breakpoint(
+            [['test_stack', '*nested', 'n']]))
+        self.assertTrue(self.another_nested_n.matches_breakpoint(
+            [['test_stack', '*nested', 'n']]))
+
+    def test_get_breakpoint(self):
+        snippet = rsrc_defn.ResourceDefinition('res',
+                                               'GenericResourceType')
+        res = resource.Resource('res', snippet, self.stack)
+
+        res.data = mock.Mock(return_value={})
+        self.assertFalse(res.has_breakpoint())
+
+        res.data = mock.Mock(return_value={'breakpoint': 'True'})
+        self.assertTrue(res.has_breakpoint())
+
+        res.data = mock.Mock(return_value={'breakpoint': 'False'})
+        self.assertFalse(res.has_breakpoint())
+
+    def test_set_breakpoint(self):
+        snippet = rsrc_defn.ResourceDefinition('res',
+                                               'GenericResourceType')
+        res = resource.Resource('res', snippet, self.stack)
+
+        res.data_set = mock.Mock()
+        res.data_delete = mock.Mock()
+
+        res.set_breakpoint()
+        res.data_set.assert_called_with('breakpoint', 'True')
+
+        res.unset_breakpoint()
+        res.data_delete.assert_called_with('breakpoint')
+
+    def test_signal_clear_breakpoint(self):
+        snippet = rsrc_defn.ResourceDefinition('res',
+                                               'GenericResourceType')
+        res = resource.Resource('res', snippet, self.stack)
+
+        res.unset_breakpoint = mock.Mock()
+        res.signal({'breakpoint': False})
+        res.unset_breakpoint.assert_called()
+
+        res.unset_breakpoint = mock.Mock()
+        self.assertRaises(exception.ResourceActionNotSupported,
+                          res.signal, None)
+        self.assertFalse(res.unset_breakpoint.called)
+
+        res.unset_breakpoint = mock.Mock()
+        self.assertRaises(exception.ResourceActionNotSupported,
+                          res.signal, {})
+        self.assertFalse(res.unset_breakpoint.called)
+
+        res.unset_breakpoint = mock.Mock()
+        self.assertRaises(exception.ResourceActionNotSupported,
+                          res.signal, {'breakpoint': True})
+        self.assertFalse(res.unset_breakpoint.called)

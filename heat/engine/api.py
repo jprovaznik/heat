@@ -94,6 +94,7 @@ def format_stack(stack, preview=False):
         rpc_api.STACK_NAME: stack.name,
         rpc_api.STACK_ID: dict(stack.identifier()),
         rpc_api.STACK_CREATION_TIME: timeutils.isotime(stack.created_time),
+        rpc_api.STACK_BREAKPOINTS: stack.env.breakpoints,
         rpc_api.STACK_UPDATED_TIME: updated_time,
         rpc_api.STACK_NOTIFICATION_TOPICS: [],  # TODO(?) Not implemented yet
         rpc_api.STACK_PARAMETERS: stack.parameters.map(str),

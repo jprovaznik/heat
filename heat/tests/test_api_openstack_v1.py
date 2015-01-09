@@ -167,7 +167,8 @@ blarg: wibble
         params = {'foo': 'bar', 'blarg': 'wibble'}
         body = {'parameters': params,
                 'parameter_defaults': {},
-                'resource_registry': {}}
+                'resource_registry': {},
+                'breakpoints': []}
         data = stacks.InstantiationData(body)
         self.assertEqual(body, data.environment())
 
@@ -183,7 +184,8 @@ blarg: wibble
         expect = {'parameters': {'blarg': 'wibble',
                                  'foo': 'bar'},
                   'parameter_defaults': {},
-                  'resource_registry': {}}
+                  'resource_registry': {},
+                  'breakpoints': []}
         data = stacks.InstantiationData(body)
         self.assertEqual(expect, data.environment())
 
@@ -198,7 +200,33 @@ blarg: wibble
                                  'foo': 'bar',
                                  'tester': 'Yes'},
                   'parameter_defaults': {},
-                  'resource_registry': {}}
+                  'resource_registry': {},
+                  'breakpoints': []}
+        data = stacks.InstantiationData(body)
+        self.assertEqual(expect, data.environment())
+
+    def test_non_empty_breakpoints(self):
+        body = {
+            'parameters': {},
+            'environment': {
+                'parameters': {},
+                'parameter_defaults': {},
+                'resource_registry': {},
+                'breakpoints': [
+                    ['mystack', 'myresource'],
+                    ['mystack', 'nested_stack', 'another_resource'],
+                ]
+            },
+        }
+        expect = {
+            'parameters': {},
+            'parameter_defaults': {},
+            'resource_registry': {},
+            'breakpoints': [
+                ['mystack', 'myresource'],
+                ['mystack', 'nested_stack', 'another_resource'],
+            ]
+        }
         data = stacks.InstantiationData(body)
         self.assertEqual(expect, data.environment())
 
@@ -213,7 +241,8 @@ blarg: wibble
         body = {'not the environment': env}
         data = stacks.InstantiationData(body)
         self.assertEqual({'parameters': {}, 'parameter_defaults': {},
-                          'resource_registry': {}},
+                          'resource_registry': {},
+                          'breakpoints': []},
                          data.environment())
 
     def test_args(self):
@@ -719,7 +748,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
               'template': template,
               'params': {'parameters': parameters,
                          'parameter_defaults': {},
-                         'resource_registry': {}},
+                         'resource_registry': {},
+                         'breakpoints': []},
               'files': {},
               'args': {'timeout_mins': 30},
               'owner_id': None,
@@ -780,7 +810,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
               'template': template,
               'params': {'parameters': parameters,
                          'parameter_defaults': {},
-                         'resource_registry': {}},
+                         'resource_registry': {},
+                         'breakpoints': []},
               'files': {},
               'args': {'timeout_mins': 30,
                        'adopt_stack_data': str(adopt_data)},
@@ -846,7 +877,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
               'template': template,
               'params': {'parameters': parameters,
                          'parameter_defaults': {},
-                         'resource_registry': {}},
+                         'resource_registry': {},
+                         'breakpoints': []},
               'files': {'my.yaml': 'This is the file contents.'},
               'args': {'timeout_mins': 30},
               'owner_id': None,
@@ -889,7 +921,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
               'template': template,
               'params': {'parameters': parameters,
                          'parameter_defaults': {},
-                         'resource_registry': {}},
+                         'resource_registry': {},
+                         'breakpoints': []},
               'files': {},
               'args': {'timeout_mins': 30},
               'owner_id': None,
@@ -905,7 +938,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
               'template': template,
               'params': {'parameters': parameters,
                          'parameter_defaults': {},
-                         'resource_registry': {}},
+                         'resource_registry': {},
+                         'breakpoints': []},
               'files': {},
               'args': {'timeout_mins': 30},
               'owner_id': None,
@@ -921,7 +955,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
               'template': template,
               'params': {'parameters': parameters,
                          'parameter_defaults': {},
-                         'resource_registry': {}},
+                         'resource_registry': {},
+                         'breakpoints': []},
               'files': {},
               'args': {'timeout_mins': 30},
               'owner_id': None,
@@ -974,7 +1009,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
               'template': template,
               'params': {'parameters': parameters,
                          'parameter_defaults': {},
-                         'resource_registry': {}},
+                         'resource_registry': {},
+                         'breakpoints': []},
               'files': {},
               'args': {'timeout_mins': 30},
               'owner_id': None,
@@ -1033,7 +1069,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
               'template': template,
               'params': {'parameters': parameters,
                          'parameter_defaults': {},
-                         'resource_registry': {}},
+                         'resource_registry': {},
+                         'breakpoints': []},
               'files': {},
               'args': {'timeout_mins': 30},
               'owner_id': None,
@@ -1432,7 +1469,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
               'template': template,
               'params': {'parameters': parameters,
                          'parameter_defaults': {},
-                         'resource_registry': {}},
+                         'resource_registry': {},
+                         'breakpoints': []},
               'files': {},
               'args': {'timeout_mins': 30}})
         ).AndReturn(dict(identity))
@@ -1468,7 +1506,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
               'template': template,
               'params': {u'parameters': parameters,
                          u'parameter_defaults': {},
-                         u'resource_registry': {}},
+                         u'resource_registry': {},
+                         u'breakpoints': []},
               'files': {},
               'args': {'timeout_mins': 30}})
         ).AndRaise(to_remote_error(error))
@@ -1528,7 +1567,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
               'template': template,
               'params': {'parameters': {},
                          'parameter_defaults': {},
-                         'resource_registry': {}},
+                         'resource_registry': {},
+                         'breakpoints': []},
               'files': {},
               'args': {rpc_api.PARAM_EXISTING: True,
                        'timeout_mins': 30}})
@@ -1564,7 +1604,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
               'template': template,
               'params': {'parameters': parameters,
                          'parameter_defaults': {},
-                         'resource_registry': {}},
+                         'resource_registry': {},
+                         'breakpoints': []},
               'files': {},
               'args': {rpc_api.PARAM_EXISTING: True,
                        'timeout_mins': 30}})
@@ -1602,7 +1643,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
               'template': template,
               'params': {'parameters': {},
                          'parameter_defaults': {},
-                         'resource_registry': {}},
+                         'resource_registry': {},
+                         'breakpoints': []},
               'files': {},
               'args': {rpc_api.PARAM_EXISTING: True,
                        'clear_parameters': clear_params,
@@ -1642,7 +1684,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
               'template': template,
               'params': {'parameters': parameters,
                          'parameter_defaults': {},
-                         'resource_registry': {}},
+                         'resource_registry': {},
+                         'breakpoints': []},
               'files': {},
               'args': {rpc_api.PARAM_EXISTING: True,
                        'clear_parameters': clear_params,
@@ -1780,7 +1823,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
              {'template': template,
               'params': {'parameters': {},
                          'parameter_defaults': {},
-                         'resource_registry': {}}})
+                         'resource_registry': {},
+                         'breakpoints': []}})
         ).AndReturn(engine_response)
         self.m.ReplayAll()
 
@@ -1804,7 +1848,8 @@ class StackControllerTest(ControllerTest, common.HeatTestCase):
              {'template': template,
               'params': {'parameters': {},
                          'parameter_defaults': {},
-                         'resource_registry': {}}})
+                         'resource_registry': {},
+                         'breakpoints': []}})
         ).AndReturn({'Error': 'fubar'})
         self.m.ReplayAll()
 

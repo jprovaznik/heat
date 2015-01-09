@@ -26,6 +26,7 @@ class YamlEnvironmentTest(common.HeatTestCase):
 parameters: {}
 parameter_defaults: {}
 resource_registry: {}
+breakpoints: []
 '''
         tpl1 = environment_format.parse(yaml1)
         environment_format.default_for_missing(tpl1)

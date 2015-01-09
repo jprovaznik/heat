@@ -388,6 +388,8 @@ class Environment(object):
             self.params = dict((k, v) for (k, v) in six.iteritems(env)
                                if k not in (env_fmt.PARAMETER_DEFAULTS,
                                             env_fmt.RESOURCE_REGISTRY))
+        self.breakpoints = env.get(env_fmt.BREAKPOINTS,
+                                   env_fmt.env_defaults[env_fmt.BREAKPOINTS])
         self.constraints = {}
         self.stack_lifecycle_plugins = []
 
@@ -414,7 +416,8 @@ class Environment(object):
         """Get the environment as a dict, ready for storing in the db."""
         return {env_fmt.RESOURCE_REGISTRY: self.registry.as_dict(),
                 env_fmt.PARAMETERS: self.params,
-                env_fmt.PARAMETER_DEFAULTS: self.param_defaults}
+                env_fmt.PARAMETER_DEFAULTS: self.param_defaults,
+                env_fmt.BREAKPOINTS: self.breakpoints}
 
     def register_class(self, resource_type, resource_class):
         self.registry.register_class(resource_type, resource_class)
